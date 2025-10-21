@@ -19,29 +19,19 @@ import {
 // DOM Elements
 const loader = document.getElementById('loader');
 const toast = document.getElementById('toast');
-
-// Form Containers
 const loginContainer = document.getElementById('login-container');
 const registerContainer = document.getElementById('register-container');
-
-// Forms
 const loginForm = document.getElementById('login-form');
 const registerForm = document.getElementById('register-form');
-
-// Error Messages
 const loginError = document.getElementById('login-error');
 const registerError = document.getElementById('register-error');
-
-// Toggle Links
 const showRegisterLink = document.getElementById('show-register');
 const showLoginLink = document.getElementById('show-login');
 
 // --- Utility Functions ---
-
 function showLoader(show) {
     loader.classList.toggle('hidden', !show);
 }
-
 function showToast(message, type = 'success') {
     toast.textContent = message;
     toast.className = '';
@@ -50,25 +40,21 @@ function showToast(message, type = 'success') {
         toast.classList.remove('show');
     }, 3000);
 }
-
 function showLoginError(message) {
     loginError.textContent = message;
     loginError.classList.remove('hidden');
 }
-
 function showRegisterError(message) {
     registerError.textContent = message;
     registerError.classList.remove('hidden');
 }
 
 // --- Form Toggling ---
-
 showRegisterLink.addEventListener('click', (e) => {
     e.preventDefault();
     loginContainer.classList.add('hidden');
     registerContainer.classList.remove('hidden');
 });
-
 showLoginLink.addEventListener('click', (e) => {
     e.preventDefault();
     registerContainer.classList.add('hidden');
@@ -83,7 +69,6 @@ registerForm.addEventListener('submit', async (e) => {
     showLoader(true);
     registerError.classList.add('hidden');
 
-    // Get form data
     const name = document.getElementById('reg-name').value;
     const dob = document.getElementById('reg-dob').value;
     const contact = document.getElementById('reg-contact').value;
@@ -91,7 +76,6 @@ registerForm.addEventListener('submit', async (e) => {
     const password = document.getElementById('reg-password').value;
     const confirmPassword = document.getElementById('reg-confirm-password').value;
 
-    // Validation
     if (password !== confirmPassword) {
         showRegisterError("Passwords do not match!");
         showLoader(false);
@@ -104,13 +88,13 @@ registerForm.addEventListener('submit', async (e) => {
     }
 
     try {
-        // Step 1: Create user in Firebase Auth (Email/Password)
+        // Step 1: Create user in Firebase Auth
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         const user = userCredential.user;
         
-        // Step 2: Save additional user data in Firestore (Database)
-        // Yahaan hum naya 'users' collection bana rahe hain
-        const userDocRef = doc(db, 'users', user.uid);
+        // Step 2: Save additional user data in Firestore
+        // Yeh line user ka unique UID legi
+        const userDocRef = doc(db, 'users', user.uid); 
         await setDoc(userDocRef, {
             uid: user.uid,
             name: name,
@@ -118,13 +102,12 @@ registerForm.addEventListener('submit', async (e) => {
             dob: dob,
             contact: contact,
             createdAt: Timestamp.now(),
-            groups: [] // Shuruaat mein user kisi group mein nahi hai
+            groups: [],
+            role: "User" // Default role set karein
         });
 
-        showLoader(false);
-        showToast('Account created successfully! Logging in...', 'success');
-        
-        // Registration ke baad seedha 'home.html' par bhej do
+        // Step 3: Sabkuch save hone ke BAAD redirect karein
+        showToast('Account created successfully!', 'success');
         window.location.href = 'home.html';
 
     } catch (error) {
@@ -144,13 +127,9 @@ loginForm.addEventListener('submit', async (e) => {
     const password = document.getElementById('login-password').value;
 
     try {
-        // Sign in user with email and password
         await signInWithEmailAndPassword(auth, email, password);
-        
-        showLoader(false);
         showToast('Logged in successfully!', 'success');
-        
-        // Login ke baad seedha 'home.html' par bhej do
+        // Login ke baad 'home.html' par bhej do
         window.location.href = 'home.html';
 
     } catch (error) {
@@ -160,19 +139,19 @@ loginForm.addEventListener('submit', async (e) => {
     }
 });
 
-// 3. Auth State Observer
+// 3. Auth State Observer (UPDATED LOGIC)
+// Yeh function ab sirf page load hone par check karega
+// Form submission se redirect hata diya gaya hai
+let isCheckingAuth = true; // Ek flag taaki humein pata chale page load ho raha hai
 onAuthStateChanged(auth, (user) => {
-    if (user) {
-        // User pehle se logged in hai
-        console.log("User is already logged in, redirecting to home...");
-        // Agar user login page par hai, toh use home bhej do
-        if (window.location.pathname.endsWith('index.html') || window.location.pathname.endsWith('/')) {
+    if (isCheckingAuth) {
+        if (user) {
+            // User pehle se logged in hai, seedha home bhej do
             window.location.href = 'home.html';
+        } else {
+            // User logged out hai, loader hata do taaki login form dikhe
+            showLoader(false);
         }
-    } else {
-        // User logged out hai
-        console.log("User is logged out, showing auth forms.");
-        // Loader chhupa do (agar dikh raha ho)
-        showLoader(false);
+        isCheckingAuth = false;
     }
 });

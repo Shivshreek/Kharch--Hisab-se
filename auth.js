@@ -68,6 +68,8 @@ registerForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     showLoader(true);
     registerError.classList.add('hidden');
+    
+    alert("DEBUG: 'Register' button clicked. Step 1 shuru."); // <-- ALERT 1
 
     const name = document.getElementById('reg-name').value;
     const dob = document.getElementById('reg-dob').value;
@@ -81,19 +83,15 @@ registerForm.addEventListener('submit', async (e) => {
         showLoader(false);
         return;
     }
-    if (password.length < 6) {
-        showRegisterError("Password must be at least 6 characters long.");
-        showLoader(false);
-        return;
-    }
 
     try {
         // Step 1: Create user in Firebase Auth
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         const user = userCredential.user;
         
+        alert("DEBUG: Step 2 - Authentication successful. Ab database mein save kar rahe hain."); // <-- ALERT 2
+
         // Step 2: Save additional user data in Firestore
-        // Yeh line user ka unique UID legi
         const userDocRef = doc(db, 'users', user.uid); 
         await setDoc(userDocRef, {
             uid: user.uid,
@@ -103,14 +101,19 @@ registerForm.addEventListener('submit', async (e) => {
             contact: contact,
             createdAt: Timestamp.now(),
             groups: [],
-            role: "User" // Default role set karein
+            role: "User"
         });
+        
+        alert("DEBUG: Step 3 - Database mein save ho gaya! Ab home page par jaa rahe hain."); // <-- ALERT 3
 
         // Step 3: Sabkuch save hone ke BAAD redirect karein
         showToast('Account created successfully!', 'success');
         window.location.href = 'home.html';
 
     } catch (error) {
+        
+        alert("DEBUG: ERROR! Kuch fail ho gaya: " + error.message); // <-- ALERT 4 (Error)
+        
         console.error(error);
         showRegisterError(error.message);
         showLoader(false);
@@ -129,7 +132,6 @@ loginForm.addEventListener('submit', async (e) => {
     try {
         await signInWithEmailAndPassword(auth, email, password);
         showToast('Logged in successfully!', 'success');
-        // Login ke baad 'home.html' par bhej do
         window.location.href = 'home.html';
 
     } catch (error) {
@@ -139,17 +141,13 @@ loginForm.addEventListener('submit', async (e) => {
     }
 });
 
-// 3. Auth State Observer (UPDATED LOGIC)
-// Yeh function ab sirf page load hone par check karega
-// Form submission se redirect hata diya gaya hai
-let isCheckingAuth = true; // Ek flag taaki humein pata chale page load ho raha hai
+// 3. Auth State Observer
+let isCheckingAuth = true;
 onAuthStateChanged(auth, (user) => {
     if (isCheckingAuth) {
         if (user) {
-            // User pehle se logged in hai, seedha home bhej do
             window.location.href = 'home.html';
         } else {
-            // User logged out hai, loader hata do taaki login form dikhe
             showLoader(false);
         }
         isCheckingAuth = false;

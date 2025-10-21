@@ -127,40 +127,31 @@ function loadExpenseHistory() {
 }
 
 function renderExpenseCard(expense) {
-    console.log("DEBUG: renderExpenseCard called for:", expense.description);
-    const card = document.createElement('div');
-    card.className = 'card p-4 expense-item';
+    console.log("DEBUG: renderExpenseCard called for:", expense.description, expense.id); // Keep this log
 
-    // Date formatting (Add safety checks)
-    let formattedDate = 'Invalid Date';
-    if (expense.expenseDate?.toDate) {
-        try {
+    const card = document.createElement('div');
+    // Ensure consistent styling, adding 'card' class if it wasn't there
+    card.className = 'card p-4 expense-item mb-4'; // Added mb-4 for spacing
+
+    // --- Start Building innerHTML ---
+    let innerHTML = '';
+
+    // Date formatting
+    let formattedDate = 'Date Missing';
+    try {
+        if (expense.expenseDate?.toDate) {
             const date = expense.expenseDate.toDate();
             formattedDate = date.toLocaleDateString('en-IN', {
                 day: '2-digit', month: 'short', year: 'numeric'
             });
-        } catch (e) { console.error("Error formatting date:", e); }
-    } else {
-         console.warn("Expense missing or invalid expenseDate:", expense.id);
-    }
+        }
+    } catch (e) { console.error("Error formatting date:", e); formattedDate = 'Invalid Date'; }
 
-    // Split details (Add safety checks)
-    let splitDetails = '<p class="text-xs text-red-500">Error: Split data missing</p>';
-    if (expense.splitWith && Array.isArray(expense.splitWith)) {
-        splitDetails = expense.splitWith.map(member => `
-            <div class="flex justify-between text-sm text-gray-600">
-                <span>${member.name || 'Unknown'}</span>
-                <span class="font-medium">₹${(member.amount || 0).toFixed(2)}</span>
-            </div>
-        `).join('');
-    } else {
-        console.warn("Expense missing or invalid splitWith:", expense.id);
-    }
-
-    // AddedBy details (Add safety checks)
+    // Payer Name
     const payerName = expense.addedBy?.name || 'Unknown Payer';
 
-    card.innerHTML = `
+    // Top Section
+    innerHTML += `
         <div class="flex justify-between items-start mb-3">
             <div>
                 <h3 class="font-semibold text-lg text-gray-800">${expense.description || 'No Description'}</h3>
@@ -170,15 +161,90 @@ function renderExpenseCard(expense) {
                 <p class="font-bold text-xl text-purple-600">₹${(expense.totalAmount || 0).toFixed(2)}</p>
                 <p class="text-gray-500 text-sm">Paid by ${payerName}</p>
             </div>
-        </div>
-        <div class="border-t pt-3 mt-3">
-            <p class="text-xs font-semibold text-gray-500 mb-1 uppercase">Split Between:</p>
-            ${splitDetails}
-        </div>
-    `;
-    expenseHistoryContainer.appendChild(card);
+        </div>`;
+
+    // Split Details Section
+    innerHTML += '<div class="border-t pt-3 mt-3">'; // Moved border inside
+    innerHTML += '<p class="text-xs font-semibold text-gray-500 mb-1 uppercase">Split Between:</p>';
+
+    if (expense.splitWith && Array.isArray(expense.splitWith)) {
+        expense.splitWith.forEach(member => {
+            innerHTML += `
+                <div class="flex justify-between text-sm text-gray-600">
+                    <span>${member.name || 'Unknown'}</span>
+                    <span class="font-medium">₹${(member.amount || 0).toFixed(2)}</span>
+                </div>`;
+        });
+    } else {
+        innerHTML += '<p class="text-xs text-red-500">Error: Split data missing</p>';
+    }
+    innerHTML += '</div>'; // Close split details div
+
+    // --- Assign innerHTML and Append ---
+    try {
+        card.innerHTML = innerHTML;
+        // Make sure the container exists and is cleared before appending
+        if (expenseHistoryContainer) {
+            expenseHistoryContainer.appendChild(card);
+        } else {
+            console.error("DEBUG: expenseHistoryContainer not found!");
+        }
+    } catch (e) {
+        console.error("DEBUG: Error setting innerHTML or appending card:", e, expense.id);
+        // Optionally, append a simple error message instead
+        const errorCard = document.createElement('div');
+        errorCard.className = 'card p-4 mb-4 bg-red-100 text-red-700';
+        errorCard.textContent = `Error rendering expense: ${expense.id}`;
+        if (expenseHistoryContainer) expenseHistoryContainer.appendChild(errorCard);
+    }
 }
 
+// ALSO, ensure the container is cleared correctly in loadExpenseHistory
+function loadExpenseHistory() {
+    console.log("DEBUG: loadExpenseHistory() called.");
+    loadingHistoryMsg.textContent = "Loading history...";
+    // Explicitly clear the container HERE
+    expenseHistoryContainer.innerHTML = '';
+    expenseHistoryContainer.appendChild(loadingHistoryMsg);
+    loadingHistoryMsg.style.display = 'block';
+
+    const expensesColRef = collection(db, 'groups', currentGroupId, 'expenses');
+    const q = query(expensesColRef, orderBy("createdAt", "desc"));
+
+    console.log(`DEBUG: Setting up listener for group ${currentGroupId}, path: groups/${currentGroupId}/expenses`);
+
+    expenseListener = onSnapshot(q, (snapshot) => {
+        console.log(`DEBUG: onSnapshot triggered. Empty: ${snapshot.empty}, Size: ${snapshot.size}`);
+
+        // IMPORTANT: Clear container *inside* the listener *before* adding new items
+        expenseHistoryContainer.innerHTML = '';
+
+        if (snapshot.empty) {
+            loadingHistoryMsg.textContent = "No expenses recorded yet.";
+            expenseHistoryContainer.appendChild(loadingHistoryMsg); // Re-append message
+            loadingHistoryMsg.style.display = 'block';
+            return;
+        }
+
+        loadingHistoryMsg.style.display = 'none'; // Hide loading message only if not empty
+
+        snapshot.forEach(doc => {
+            const expense = doc.data();
+            expense.id = doc.id;
+            console.log("DEBUG: Rendering expense:", expense.description, expense.id);
+            renderExpenseCard(expense); // Call the updated render function
+        });
+
+    }, (error) => {
+        console.error("DEBUG: Error in onSnapshot listener:", error);
+        expenseHistoryContainer.innerHTML = ''; // Clear on error too
+        loadingHistoryMsg.textContent = "Error loading history.";
+        expenseHistoryContainer.appendChild(loadingHistoryMsg);
+        loadingHistoryMsg.style.display = 'block';
+        showToast("Could not load expense history.", "error");
+    });
+    console.log("DEBUG: Started expense listener setup.");
+}
 
 // --- Logout --- (No changes)
 async function handleLogout() { showLoader(true); if (expenseListener) { expenseListener(); expenseListener = null; console.log("Stopped expense listener before logout."); } try { await signOut(auth); window.location.href = 'index.html'; } catch (error) { console.error("Error logging out:", error); showToast("Logout failed", "error"); showLoader(false); } }

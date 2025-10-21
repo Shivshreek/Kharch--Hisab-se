@@ -131,3 +131,41 @@ body {
 .status-pending { background: #fee2e2; color: #991b1b; }
 .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); z-index: 1000; align-items: center; justify-content: center; }
 .modal.active { display: flex; }
+/* ========================================= */
+/* === YEH CODE STYLE.CSS MEIN NEECHE ADD KAREIN === */
+/* ========================================= */
+
+/* Group Card Hover Effect */
+.card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 15px 30px rgba(0, 0, 0, 0.15);
+}
+
+/* Modal Background (Pehle se hai, par important hai) */
+.modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(5px);
+}
+
+.modal.active {
+    display: flex;
+}
+
+/* Floating Action Button */
+.btn.rounded-full {
+    width: 4rem; /* 64px */
+    height: 4rem; /* 64px */
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
